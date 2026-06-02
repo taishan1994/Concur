@@ -1,15 +1,22 @@
 # Concur
 ConCuR: Conciseness Makes State-of-the-Art Kernel Generation (Reproduced)
+
 对ConCuR 论文的复现。
 
 原始论文相关信息：
+
 ConCuR: Conciseness Makes State-of-the-Art Kernel Generation
+
 home：https://lkongam.github.io/ConCuR/
+
 arxiv：https://arxiv.org/pdf/2510.07356
+
 dataset：https://huggingface.co/datasets/lkongam/ConCuR
+
 model：https://huggingface.co/lkongam/KernelCoder
 
-基础环境： 1台A800,使用sglang-0.5.6.post2官方镜像，或者自己准备其余的基础环境。
+# 基础环境
+1台A800,使用sglang-0.5.6.post2官方镜像，或者自己准备其余的基础环境。
 ```shell
 cd ms_swift
 
@@ -24,12 +31,13 @@ bash env.sh
 bash env_qwen3.6.sh
 ```
 
-准备数据：下载concur数据集，然后修改ms_swist/convert_arrow_to_sft.py里面的路径，将其转换为ms-swift训练所需要的格式。由于concur论文中one-shot为给出样例，因此从训练数据从4,892选择1条数据填充到prompt template里面，剩余4891条数据作为训练数据。
+# 准备数据
+下载concur数据集，然后修改ms_swist/convert_arrow_to_sft.py里面的路径，将其转换为ms-swift训练所需要的格式。由于concur论文中one-shot为给出样例，因此从训练数据从4,892选择1条数据填充到prompt template里面，剩余4891条数据作为训练数据。
 
 
 训练参数：采用ms-swift作为训练框架，lora微调，rank=32，alpha=32，per_device_train_batch_size=1，梯度累积设置为2，权权重衰减设置为0.1，lora_dropout=0.05，学习率为1e-4，训练3个epoch，训练长度为3276。训练qwen3-14b，qwen3-32b，qwen3-qwq。qwen3.6-27B出现OOM，解决方案：1）安装flash-linear-attention，将训练时间从38h缩短到12h。2）设置序列并行=2，并且设置梯度累积设置为2，per_device_train_batch_size=2，确保总的训练的step和上述模型一致。如果还是OOM，则将设置序列并行=2，并且设置梯度累积设置为4，per_device_train_batch_size=1。
 
-训练：
+# 训练
 ```shell
 # Patch swift for datasets >= 4.0 compatibility (Json feature removed)
 SWIFT_CORE=$(python3 -c "import swift.dataset.preprocessor; import os; print(os.path.dirname(swift.dataset.preprocessor.__file__))")/core.py
@@ -64,7 +72,8 @@ swift sft \
 ```
 transformers的qwen.py可能会报错，可以将qwen.py替换掉transformers里的qwen.py。另外dataset也可能会报错，替换掉swift里面的swift_core_patched.py。如果还有其余额外的错误，可以利用ai codeing进行修复。
 
-测试：采用sglang部署除了qwen3.6-27B的模型，实测发现vllm-0.19.0部署测试的结果比sglang-0.5.6部署的QwQm模型效果要差得多。采用vllm-0.19.0部署qwen3.6-27b。
+# 测试
+采用sglang部署除了qwen3.6-27B的模型，实测发现vllm-0.19.0部署测试的结果比sglang-0.5.6部署的QwQm模型效果要差得多。采用vllm-0.19.0部署qwen3.6-27b。
 
 合并lora权重：
 ```shell
@@ -121,7 +130,7 @@ KB_LEVELS = ["level1", "level2", "level3"]
 ```
 采用并发加速推理，每张卡上每次只运行一个实例。另外我们也扩展了评测使用多轮反馈迭代的方式，可以和多轮强化学习的结果进行对比。
 
-单轮结果：
+# 单轮结果
 | Model | LEVEL1 |  |  | LEVEL2 |  |  | LEVEL3 |  |  |
 |---------|---------:|---------:|---------:|---------:|---------:|---------:|---------:|---------:|---------:|
 |  | Compile | Accuracy | Fast₁ | Compile | Accuracy | Fast₁ | Compile | Accuracy | Fast₁ |
@@ -142,5 +151,5 @@ KB_LEVELS = ["level1", "level2", "level3"]
 - 也下载了Kevin-32B模型同步进行测试，效果也不大好。
 - 使用concur数据集训练后的模型在kernnelbench上确实取得了一致性的提升。
 
-多轮结果：
+# 多轮结果
 待补充
