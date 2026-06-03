@@ -152,4 +152,58 @@ KB_LEVELS = ["level1", "level2", "level3"]
 - 使用concur数据集训练后的模型在kernnelbench上确实取得了一致性的提升。
 
 # 多轮结果
-待补充
+|             |        |            | LEVEL1  |          |       |            | LEVEL2  |          |       |            | LEVEL3  |          |       |
+| ----------- | ------ | ---------- | ------- | -------- | ----- | ---------- | ------- | -------- | ----- | ---------- | ------- | -------- | ----- |
+| Model       | round  | 实际样本数 | Compile | Accuracy | Fast₁ | 实际样本数 | Compile | Accuracy | Fast₁ | 实际样本数 | Compile | Accuracy | Fast₁ |
+| Qwen3.6-27B | 1      | 100        | 73      | 39       | 18    | 100        | 77      | 50       | 22    | 50         | 56      | 38       | 6     |
+|             | 2      | 98         | 76.5    | 46.9     | 25.5  | 99         | 93.9    | 63.6     | 41.4  | 50         | 68      | 32       | 8     |
+|             | 3      | 97         | 76.3    | 45.4     | 24.7  | 99         | 85.9    | 65.7     | 40.4  | 50         | 64      | 42       | 12    |
+|             | 4      | 95         | 74.7    | 48.4     | 27.4  | 99         | 86.9    | 70.7     | 51.5  | 50         | 68      | 46       | 14    |
+|             | best   | 100        | 96      | 67       | 45    | 100        | 99      | 91       | 72    | 50         | 98      | 72       | 30    |
+|             | single | 100        | 59      | 45       | 25    | 100        | 80      | 53       | 53    | 50         | 72      | 56       | 20    |
+
+需要注意的是：
+
+- qwen3.6-27B在推理的时候对于多轮数据，前面几轮的think会被丢掉。
+
+```python
+from openai import OpenAI
+
+# ============================================================
+# Defaults (overridable via CLI)
+# ============================================================
+API_PARAMS = {
+    "url": "http://192.168.112.57:11378/v1",
+    "api_key": "none",
+    "model_id": "/ms/FM/checkpoints/Qwen-Zoo/Qwen3.6-27B",
+    "temperature": 1.0,
+    "max_tokens": 32768,
+}
+
+openai_client = OpenAI(base_url=API_PARAMS["url"], api_key=API_PARAMS["api_key"])
+
+messages = [
+    {"role": "user", "content": "你是谁？"},
+    {"role": "assistant", "content": "<think>\n我需要回答用户我是谁。\n</think>\n\n我是Qwen，你需要我做什么？"},
+    {"role": "user", "content": "1+1等于几？"}
+]
+
+from transformers import AutoTokenizer
+tokenizer = AutoTokenizer.from_pretrained(API_PARAMS["model_id"])
+inps = tokenizer.apply_chat_template(messages, add_generation_prompt=True, tokenize=True)
+print(len(inps.input_ids))
+```
+
+如果需要保留，请参考：https://huggingface.co/Qwen/Qwen3.6-27B
+
+另外，ms-swift训练的时候：https://swift.readthedocs.io/en/v3.12/Instruction/Command-line-parameters.html?utm_source=chatgpt.com
+
+Note: For thinking models (thinking/hybrid thinking) or when enable_thinking is explicitly enabled, we will remove historical thinking content during both inference and training (the thinking content of the last round is retained, i.e., the content after the last user message). If the basic strategy of loss_scale during training is not last_round, for example ‘default’, then historical thinking content will not be removed.
+
+loss_scale 默认是default，也就是训练的时候多轮的中的think会被保留且会被用于训练计算loss。
+
+多轮推理结果数据分布：
+
+![image-20260603165919510](./README.assets/image-20260603165919510.png)
+
+![image-20260603165948887](./README.assets/image-20260603165948887.png)
